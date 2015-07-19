@@ -1,25 +1,148 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Reproducible Research Assessment 1"
+author: "unkame"
+date: "Saturday, July 18, 2015"
+output: html_document
 ---
 
+# Executive Summary
+This report studied the number of steps taken across 2 months. The data was collected by date and 5-minute interval. The mean of total number of steps taken per day was 10766. The maximum number of steps was 206 steps at 5-minute interval 835. There were also differences of activity patterns between weekdays and weekends that the peak value in weekdays was higher than 200 but that in weekends was about 150 only. But the distritbution of steps taken in weekend spread more evenly than in weekday.
 
-## Loading and preprocessing the data
+# Objectives
+The objectives of this study are to find out:
+1. the mean total number of steps taken per day
+2. the average daily activity pattern
+3. the differences (if any) in activity patterns between weekdays and weekends
 
+# Introduction
+Technical monitoring devices were used to measure personal activities. In this study the activity measured was the personal activity at 5 minutes intervals through out the day. The data was collected at October and November, 2012, including the number of steps taken in 5 minute intervals each day.
 
+# Data Loading and preprocessing
+Data provided had 3 attributes: 
 
-## What is mean total number of steps taken per day?
+- steps: Number of steps taking in a 5-minute interval (missing values are coded as NA)
 
+- date: The date on which the measurement was taken in YYYY-MM-DD format
 
+- interval: Identifier for the 5-minute interval in which measurement was taken
 
-## What is the average daily activity pattern?
+R Codes below were used to load the data.
+```{r, message=FALSE, warning=FALSE}
+activity <- read.csv("activity.csv")
+str(activity)
+```
 
+Here the attribute type of "date" was converted to Date instead of Factor. Also the missing data in "steps" were filtered and used in study parts 1 & 2.
+```{r, echo = TRUE, message=FALSE, warning=FALSE}
+activity$date <- as.Date(activity$date)
+activity_rm <- activity[!is.na(activity$steps), ]
+```
 
+# Study Part 1: Finding the mean total number of steps taken per day
+Since the records stored the number of steps individually, so first of all the number of steps were grouped by date so as to compute the number of steps taken per day. After grouping a histogram was ploted to study the overall of frequencies verus total number of steps taken per day.
+```{r, echo = TRUE}
+StepsPerDay <- tapply(activity_rm$steps, activity_rm$date, sum)
+hist(StepsPerDay, 10, main = "Plot of Frequency verus Total no. of steps taken per day", xlab = "No. of steps taken per day")
+```
 
-## Imputing missing values
+The mean of total number of steps taken per day was 10766.
+```{r, echo = TRUE}
+mean(StepsPerDay)
+```
 
+The median of total number of steps taken per day was 10765.
+```{r, echo = TRUE}
+median(StepsPerDay)
+```
 
+# Study Part 2: Finding the average daily activity pattern
+To examine the average daily activity pattern, a time series plot of the average number of steps taken versus the 5-minute intervals was needed to plot. The data required this time was the number of steps per 5-minute interval. Then a time series plot was made.
+```{r, echo = TRUE}
+StepsPerInv <- tapply(activity_rm$steps, activity_rm$interval, mean)
+plot(y = StepsPerInv, x = names(StepsPerInv), type = "l", main = "Plot of Average Daily Activity Pattern", xlab = "Interval (5-Minute)", ylab = "Average number of steps taken")
+```
 
-## Are there differences in activity patterns between weekdays and weekends?
+From the plot, the activity pattern was very few from interval 0 to 500 , and started increasing to highest average number near interval 1000. Then it decreased and fluctuated after interval 1000.
+The maximum average number of steps was around 206 steps at interval 835.
+```{r, echo = TRUE}
+StepsPerInv[StepsPerInv==max(StepsPerInv)]
+```
+
+# Study Part 3: Inputing missing values
+There were missing value coded as "NA" in data. The total number of missing values in the dataset was 2304. Obviously some bias was presented in the result which ingored the missing data. 
+```{r, echo = TRUE}
+sum(is.na(activity))
+```
+
+So to reduce the bias, the missing values were replaced by the mean values obtained from other non-missing values of the same 5-minute interval. No missing value existed after replacement.
+```{r, echo = TRUE}
+activity_new <- activity
+activity_new[is.na(activity_new$steps), 1] <- StepsPerInv[as.character(activity_new[is.na(activity_new$steps),3])]
+sum(is.na(activity_new))
+```
+
+Then a histogram of replaced NA dataset was plotted. It was compared to the graph plotted in study part 1.
+```{r, echo = TRUE}
+StepsPerDay_new <- tapply(activity_new$steps, activity_new$date, sum)
+
+par(mfrow = c(1,2))
+hist(StepsPerDay, 10, main = "Total number of steps 
+     taken per day", xlab = "Steps")
+abline(v = median(StepsPerDay), col = 4, lwd = 4)
+
+hist(StepsPerDay_new,10, main = "Total number of steps taken 
+     per day (Replaced)", xlab = "Steps")
+abline(v = median(StepsPerDay_new), col = 4, lwd = 4)
+```
+
+The mean and median of the total number of steps taken per day of replaced data were 10766 and 10766.
+```{r, echo = TRUE}
+mean(StepsPerDay_new)
+median(StepsPerDay_new)
+```
+
+The mean of replaced data was the same as the mean from the study part 1.
+```{r, echo = TRUE}
+mean(StepsPerDay_new) - mean(StepsPerDay)
+```
+
+The median of replaced data had an increase of 1.189 as the median from the study part 1.
+```{r, echo = TRUE}
+median(StepsPerDay_new) - median(StepsPerDay)
+```
+
+# Study Part 4: Differences in activity patterns between weekdays and weekends
+In this part, the differences in activity patterns between weekdays and weekends would be studied. First 2 attributes "weekday" and "daytype" were added in the data.
+"weekday" - used for identitying the weekday of the date
+"daytype" - used for classifying whether the day is "Weekday" or "Weekend"
+```{r, echo = TRUE}
+activity_new$weekday <- weekdays(activity_new$date)
+activity_new$daytype <- as.factor(c("weekend", "weekday"))
+activity_new[activity_new$weekday == "Sunday" | activity_new$weekday == "Saturday" ,5] <- factor("weekend")
+activity_new[!(activity_new$weekday == "Sunday" | activity_new$weekday == "Saturday"),5 ] <- factor("weekday")
+```
+
+Then the average number of steps taken per 5-minute interval across weekdays and weekends were computed.
+```{r, echo = TRUE}
+mean_data <- aggregate(activity_new$steps, by=list(activity_new$daytype, activity_new$interval), mean)
+names(mean_data) <- c("daytype", "interval", "mean")
+```
+
+Finally the plots of average number of steps of weekdays and weekends were plotted respectively using lattice library.
+```{r, echo = TRUE, message=FALSE, warning=FALSE}
+library("lattice")
+p <- xyplot(mean ~ interval | daytype, 
+            data = mean_data, 
+            main="Average Number of Steps Taken\nOn Weekdays and Weekends",
+            type="l", 
+            lwd=1,
+            xlab="Interval", 
+            ylab="Number of steps", 
+            layout=c(1,2))
+print (p)    
+```
+
+The plots showed the average number of steps taken between weekend days and weekday days were different. The distributions of average number of steps taken on weekends and weekdays were different. The peak number of steps in weekends was around 150, but the peak number of steps in weekdays was above 200. The number of steps in weekend days spread more evenly than that in weekday days along the intervals. The number of steps of weekday was highest around interval 700 while in other intervals the number of steps taken were lower than 100; The weekend graph had several average number of steps reaching 100 ~ 150 across the intervals between 700 to 1700.
+
+# Conclusion
+In this report, two means of total number of steps taken per day were computed. The mean using original data was 10766, and the mean using simluated data was also 10766. The daily activity pattern was studied by a plot and the maximum average number of steps was around 206 steps at interval 835. The differences of activity patterns between weekdays and weekends were also investigated that the peak value of number of steps in weekday is higher than that of weekend, but the average number of steps in weekend spread more evenly than that in weekday.
